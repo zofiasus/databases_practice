@@ -94,7 +94,11 @@ def first_int_or_none(arr, idx):
 def insert_units(recording_key: dict, first_trial) -> None:
     rows = []
     for region, spikes_field, guide_field, label_field in REGION_FIELDS:
-        spikes = as_2d_numeric(getattr(first_trial, spikes_field))
+        spikes = normalize_spikes(
+            getattr(first_trial, spikes_field),
+            getattr(first_trial, guide_field, None),
+            getattr(first_trial, label_field, None),
+        )
         n_units = spikes.shape[1]
 
         guides = np.asarray(getattr(first_trial, guide_field, np.array([])))
@@ -123,6 +127,7 @@ def ingest_file(path: Path, max_trials: int | None = None, include_zero_counts: 
     path = path.expanduser().resolve()
     trials = load_trials(path)
     meta = parse_filename(path)
+
     recording_id = path.stem
 
     recording_row = {
@@ -132,13 +137,13 @@ def ingest_file(path: Path, max_trials: int | None = None, include_zero_counts: 
         "session_label": meta["session_label"],
         "session_datetime": meta["session_datetime"],
         "part_index": meta["part_index"],
-        "file_size_bytes": path.stat().st_size,
+        "file_size_bytes": int(path.stat().st_size),
         "n_trials": len(trials),
     }
-    Recording.insert1(recording_row, skip_duplicates=True) # put in 1 recording, per file
+    Recording.insert1(recording_row, skip_duplicates=True)
 
     recording_key = {"recording_id": recording_id}
-    insert_units(recording_key, trials[0])
+    insert_units(recording_key, trials[0]) # inserting Unit table 
 
     total = len(trials) if max_trials is None else min(max_trials, len(trials))
     for trial_idx in range(total):
@@ -188,7 +193,7 @@ def ingest_file(path: Path, max_trials: int | None = None, include_zero_counts: 
             TrialUnitSpikeCount.insert(count_rows, skip_duplicates=True)
 
         if (trial_idx + 1) % 25 == 0 or trial_idx == total - 1:
-            print(f"[{path.name}] trial {trial_idx + 1}/{total}")
+            print(f"[{path.name}] trial {trial_idx + 1}/{total}") # just to see progress :)
 
 
 def main() -> None:

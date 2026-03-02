@@ -13,13 +13,14 @@ print("Schema ready:", schema.database)
 class Recording(dj.Manual):
     definition = """
     # One row per source .mat file
-    mat_file_path: varchar(1024)
+    recording_id: varchar(128)
     ---
+    mat_file_path: varchar(1024)
     animal: varchar(32)
     session_label: varchar(64)
     session_datetime: datetime
-    part_index: tinyint 
-    file_size_bytes: bigint 
+    part_index: int
+    file_size_bytes: int
     n_trials: int
     """
 
