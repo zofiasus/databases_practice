@@ -1,7 +1,13 @@
+# IMPORTS
 import datajoint as dj
 from first_pipeline_schema import schema
 from IPython.display import display # to display graphs
 from first_pipeline_schema import Animal, Session
+
+##############################
+# POPULATING TABLES MANUALLY #
+##############################
+# NOTE: we are doing this manually as the Schemes for Animal and Session inherit the .Manual class
 
 # Add one animal
 Animal.insert1( # insert1 is for inserting exactly one row (single dict/tuple)
