@@ -93,6 +93,13 @@ class AllUnitMap(dj.Computed):
             })
         self.insert(rows)
 
+        # print progress
+        print(f"AllUnitMap inserted {len(rows)} rows for {key['recording_id']}")
+
+                
+        
+        
+
 @schema
 class AllTrialSpikeCount(dj.Computed): # this will extend the TrialUnitSpikeCount by the 'all' spikes data
     definition = """
@@ -122,5 +129,9 @@ class AllTrialSpikeCount(dj.Computed): # this will extend the TrialUnitSpikeCoun
         n = int(vals[0]) if len(vals) else 0 # account for empty rows
 
         self.insert1({**key, "n_spikes": n})
+
+        # print every 500 trial indices for quick progress
+        if key["trial_idx"] % 500 == 0 and key["all_unit_idx"] == 0:
+            print(f"AllTrialSpikeCount progress: recording={key['recording_id']} trial_idx={key['trial_idx']}")
 
 
