@@ -64,3 +64,63 @@ class TrialUnitSpikeCount(dj.Manual):
     ---
     n_spikes: int unsigned
     """
+
+@schema
+class AllUnitMap(dj.Computed):
+    definition = """
+    # Concatenated unit index for synthetic 'all' region (the raw data 'all' spike data is incorrect)
+    -> Recording
+    all_unit_idx: int
+    ---
+    source_region: varchar(24)
+    source_unit_idx: int
+    """
+
+    key_source = Recording
+
+    def make(self, key): # DataJoint calls this once per key in key_source (here: each recording)
+        base = (
+            Unit & key # restricts Unit table to that one recording
+            & 'brain_region in ("Thal","CP","MOp","SSp_ll")' # keeps only base regions (excludes synthetic all)
+        ).fetch("brain_region", "unit_idx", order_by="brain_region, unit_idx") # gets two aligned arrays, sorted
+        rows = [] # make rows to insert to AllUnitMap
+        for i, (region, unit_idx) in enumerate(zip(*base)):
+            rows.append({
+                **key,
+                "all_unit_idx": i,
+                "source_region": region,
+                "source_unit_idx": int(unit_idx),
+            })
+        self.insert(rows)
+
+@schema
+class AllTrialSpikeCount(dj.Computed): # this will extend the TrialUnitSpikeCount by the 'all' spikes data
+    definition = """
+    -> Trial
+    -> AllUnitMap
+    ---
+    n_spikes: int
+    """
+
+    key_source = Trial * AllUnitMap
+
+    def make(self, key):# DataJoint calls this once per row in key_source (Trial * AllUnitMap)
+        # Get source mapping for this synthetic all-unit
+        source_region, source_unit_idx = (AllUnitMap & key).fetch1(
+            "source_region", "source_unit_idx"
+        )
+        # Restrict TrialUnitSpikeCount only by attributes it actually has
+        trial_key = {k: key[k] for k in Trial.primary_key}
+        # Find the matching spike-count row in raw/unit-level data for that trial + mapped source unit, then read its n_spikes
+        rel = (
+            TrialUnitSpikeCount
+            & trial_key
+            & {"brain_region": source_region, "unit_idx": int(source_unit_idx)}
+        )
+
+        vals = rel.fetch("n_spikes")
+        n = int(vals[0]) if len(vals) else 0 # account for empty rows
+
+        self.insert1({**key, "n_spikes": n})
+
+
