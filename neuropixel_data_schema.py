@@ -24,7 +24,6 @@ class Recording(dj.Manual):
     n_trials: int
     """
 
-
 @schema
 class Trial(dj.Manual):
     definition = """
@@ -34,11 +33,14 @@ class Trial(dj.Manual):
     ---
     trial_id=null: int
     trial_name='': varchar(128)
+    trial_type='': varchar(64)
+    sol_direction=null: float
+    idx_sol_direction=null: int
+    idx_sol_on=null: int
     trial_length=null: int
     bin_size_sec: float
     n_time_bins: int unsigned
     """
-
 
 @schema
 class Unit(dj.Manual):
@@ -131,7 +133,7 @@ class AllTrialSpikeCount(dj.Computed): # this will extend the TrialUnitSpikeCoun
         self.insert1({**key, "n_spikes": n})
 
         # print every 500 trial indices for quick progress
-        if key["trial_idx"] % 500 == 0 and key["all_unit_idx"] == 0:
+        if key["trial_idx"] % 25 == 0 and key["all_unit_idx"] == 0:
             print(f"AllTrialSpikeCount progress: recording={key['recording_id']} trial_idx={key['trial_idx']}")
 
 
