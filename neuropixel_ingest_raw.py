@@ -122,6 +122,17 @@ def insert_units(recording_key: dict, first_trial) -> None:
 
     Unit.insert(rows, skip_duplicates=True)
 
+def scalar_or_none(value, cast=float):
+    if value is None:
+        return None
+    arr = np.asarray(value)
+    if arr.size == 0:   # handles []
+        return None
+    v = arr.reshape(-1)[0]
+    try:
+        return cast(v)
+    except (TypeError, ValueError):
+        return None
 
 def ingest_file(path: Path, max_trials: int | None = None, include_zero_counts: bool = False) -> None:
     path = path.expanduser().resolve()
@@ -157,11 +168,17 @@ def ingest_file(path: Path, max_trials: int | None = None, include_zero_counts: 
             getattr(trial, lf0, None),
         )
 
+        trial_name = str(getattr(trial, "trial_name", ""))
+
         trial_row = {
             **recording_key,
             "trial_idx": trial_idx,
             "trial_id": int(getattr(trial, "trial_id", trial_idx)),
-            "trial_name": str(getattr(trial, "trial_name", "")),
+            "trial_name": trial_name,
+            "trial_type": trial_name,
+            "sol_direction": scalar_or_none(getattr(trial, "values_Sol_direction", None), float),
+            "idx_sol_direction": scalar_or_none(getattr(trial, "idx_Sol_direction", None), int),
+            "idx_sol_on": scalar_or_none(getattr(trial, "idx_sol_on", None), int),
             "trial_length": int(getattr(trial, "trial_length", ref_spikes.shape[0])),
             "bin_size_sec": float(getattr(trial, "bin_size", 0.0)),
             "n_time_bins": int(ref_spikes.shape[0]),
@@ -203,20 +220,21 @@ def main() -> None:
     parser.add_argument("mat_files", nargs="+", type=Path)
     parser.add_argument("--max-trials", type=int, default=None, help="Use first N trials for quick testing.") # for checking on small numbers of data
     parser.add_argument(
-        "--include-zero-counts",
+        "--exclude-zero-counts", 
         action="store_true",
-        help="Store rows where n_spikes == 0 (larger table).",
+        help="Skip rows where n_spikes == 0 (smaller tables, biased stats).",
     )
     args = parser.parse_args()
 
-    # example CL: python neuropixel_populate_data.py /Users/zosiasus/Documents/M046/M046_2024_12_19_13_30_pyaldata_0.mat --max-trials 3
+    # example CL: python neuropixel_ingest_raw.py /Users/zosiasus/Documents/M046/M046_2024_12_19_13_30_pyaldata_0.mat --max-trials 3
+    include_zero_counts = not args.exclude_zero_counts
 
     for mat_file in args.mat_files:
         print(f"Ingesting: {mat_file}")
         ingest_file(
             mat_file,
             max_trials=args.max_trials,
-            include_zero_counts=args.include_zero_counts,
+            include_zero_counts=include_zero_counts,
         )
 
     print("Done.")
